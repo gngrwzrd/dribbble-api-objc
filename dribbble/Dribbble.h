@@ -37,10 +37,9 @@ typedef enum DribbblePagerLoadOperation {
 #pragma mark Dribbble
 
 //Instances of Dribbble are used to load multiple pages of dribbble content.
-//It's not a traditional pager though. The only functionality provided is to
-//load enough pages of shots to fill the @minShotsCount. Anytime load is called
-//the pager starts over at page=1, the new shots are inserted into the beginning
-//of the @shots array, and N shots are removed from the end of @shots array.
+//It's not a traditional pager though. Each time a load is called it starts at
+//page 1, when the loading is complete, shots can be merged into the existing
+//pool of shots by providing a custom dribbble.shotsMerger.
 @interface Dribbble : NSObject <NSCoding> {
 	BOOL _loading;
 	DribbblePagerType _pagerType;
@@ -52,11 +51,6 @@ typedef enum DribbblePagerLoadOperation {
 
 //shots to load per page, default=50. max=50.
 @property NSInteger perPage;
-
-//default = 200, 4 pages of 50 are loaded. If this is changed then N pages of
-//@perPage are loaded until @minShotsCount is filled. If there aren't enough shots
-//in dribbble's feed then this may not always be met.
-@property NSInteger minShotsCount;
 
 //player name for initFollowingShotsPager.
 @property (nonatomic,readonly) NSString * playerName;
@@ -77,10 +71,13 @@ typedef enum DribbblePagerLoadOperation {
 - (Dribbble *) initDebutPager;
 - (Dribbble *) initFollowedPlayerShotsPager:(NSString *)playerName;
 
-//Calling load always loads from pages 1-N until @minShotsCount is filled.
+//load page 1.
 - (DribbbleResponse *) load:(DribbbleCompletionBlock)completion;
 
+//load specific page.
 - (DribbbleResponse *) loadPage:(NSInteger) page completion:(DribbbleCompletionBlock) completion;
+
+//load N pages (page 1->N).
 - (DribbbleResponse *) loadPages:(NSInteger) pageCount completion:(DribbbleCompletionBlock) completion;
 
 //write a Dribbble pager instance to a URL.
@@ -89,9 +86,6 @@ typedef enum DribbblePagerLoadOperation {
 //write a Dribbble pager instance to a URL - the url set in dribbble.serializationURL.
 - (BOOL) writeDataToSerializationURLAtomically:(BOOL)atomically;
 
-//loadPages:(NSInteger) pages;
-//- (DribbbleResponse *) loadPage:(NSInteger) page completion:(DribbbleCompletionBlock) completion; //can use -1 for last page.
-
 /**
  * FOR ALL STATIC METHODS BELOW
  * If you provide a completion block, requests are sent _Asynchronously_ and use your block for completion.
@@ -99,7 +93,6 @@ typedef enum DribbblePagerLoadOperation {
  * POSSIBLE OPTIONS:
  * @{@"page":@"1", @"per_page":@"15"}
  */
-
 //shots
 + (DribbbleResponse *) everyoneShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
 + (DribbbleResponse *) popularShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;

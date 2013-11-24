@@ -210,7 +210,6 @@
 	_mutableShots = [NSMutableArray arrayWithArray:[unarchiver decodeObjectForKey:@"shots"]];
 	_pagerType = [unarchiver decodeIntForKey:@"pagerType"];
 	_playerName = [unarchiver decodeObjectForKey:@"playerName"];
-	_minShotsCount = [unarchiver decodeIntegerForKey:@"minShotsCount"];
 	_perPage = [unarchiver decodeIntegerForKey:@"perPage"];
 	return self;
 }
@@ -219,7 +218,6 @@
 	NSKeyedArchiver * archiver = (NSKeyedArchiver *)aCoder;
 	[archiver encodeInt:_pagerType forKey:@"pagerType"];
 	[archiver encodeInteger:_perPage forKey:@"perPage"];
-	[archiver encodeInteger:_minShotsCount forKey:@"minShotsCount"];
 	[archiver encodeObject:_playerName forKey:@"playerName"];
 	[archiver encodeObject:_mutableShots forKey:@"shots"];
 }
