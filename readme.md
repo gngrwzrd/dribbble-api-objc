@@ -13,13 +13,13 @@ Asynchronous Example:
 
 Handling Errors:
 
-[Dribbble everyoneShotsWithOptions:nil completion:(^DribbbleResponse * res){
-	if(res.error) {
-		NSLog(@"%@",res.error);
-	} else {
-		NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
-	}
-}];
+    [Dribbble everyoneShotsWithOptions:nil completion:(^DribbbleResponse * res){
+	    if(res.error) {
+		    NSLog(@"%@",res.error);
+	    } else {
+		    NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
+	    }
+    }];
 
 Paging:
 
