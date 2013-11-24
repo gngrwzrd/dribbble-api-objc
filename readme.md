@@ -1,4 +1,4 @@
-dribbble-api-objc is another dribbble API for objective-c. The different is the flexibility and small amount of code. It's synchronous, and asynchronous.
+dribbble-api-objc is another dribbble API for objective-c. The difference is the flexibility and small amount of code. It's synchronous, and asynchronous.
 
 Synchronous Example:
 
