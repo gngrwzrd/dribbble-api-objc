@@ -2,14 +2,14 @@ dribbble-api-objc is another dribbble API for objective-c. The difference is the
 
 Synchronous Example:
 
-DribbbleResponse * res = [Dribbble everyoneShotsWithOptions:nil completion:nil];
-NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
+    DribbbleResponse * res = [Dribbble everyoneShotsWithOptions:nil completion:nil];
+    NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
 
 Asynchronous Example:
 
-[Dribbble everyoneShotsWithOptions:nil completion:(^DribbbleResponse * res){
-	NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
-}];
+    [Dribbble everyoneShotsWithOptions:nil completion:(^DribbbleResponse * res){
+	    NSLog(@"%@",[res.jsonData objectForKey:@"shots"]);
+    }];
 
 Handling Errors:
 
@@ -23,12 +23,12 @@ Handling Errors:
 
 Paging:
 
-Dribbble * everyone = [[Dribbble alloc] initEveryonePager];
-[everyone load:(^DribbbleResponse * res){
-	NSLog(@"got shots for everyone: %@",res.dribbble.shots);
-}];
+    Dribbble * everyone = [[Dribbble alloc] initEveryonePager];
+    [everyone load:(^DribbbleResponse * res){
+	    NSLog(@"got shots for everyone: %@",res.dribbble.shots);
+    }];
 
-Dribbble * popular = [[Dribbble alloc] initPopularPager];
-[popular loadPages:4 completion:(^DribbbleResponse * res){
-	NSLog(@"got 4 pages of shots: %@",res.dribbble.shots);
-}];
+    Dribbble * popular = [[Dribbble alloc] initPopularPager];
+    [popular loadPages:4 completion:(^DribbbleResponse * res){
+        NSLog(@"got 4 pages of shots: %@",res.dribbble.shots);
+    }];
