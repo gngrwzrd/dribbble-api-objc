@@ -17,6 +17,10 @@ int main(int argc, const char * argv[]) {
 	NSLog(@"%@",[Dribbble debutShotsWithOptions:nil completion:NULL]);
 	NSLog(@"%@",[Dribbble popularShotsWithOptions:nil completion:NULL]);
 	
+	[Dribbble everyoneShotsWithOptions:nil completion:^(DribbbleResponse *response) {
+		
+	}];
+	
 }
 	
     return 0;
