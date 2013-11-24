@@ -32,3 +32,5 @@ Paging:
     [popular loadPages:4 completion:(^DribbbleResponse * res){
         NSLog(@"got 4 pages of shots: %@",res.dribbble.shots);
     }];
+
+There are more features. Read the source ;)
