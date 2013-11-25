@@ -71,7 +71,7 @@ typedef enum DribbblePagerLoadOperation {
 - (Dribbble *) initDebutPager;
 - (Dribbble *) initFollowedPlayerShotsPager:(NSString *)playerName;
 
-//load page 1.
+//load page 1. if page is -1 it loads (dribbble.shots.count/dribbble.perPage)+1
 - (DribbbleResponse *) load:(DribbbleCompletionBlock)completion;
 
 //load specific page.
