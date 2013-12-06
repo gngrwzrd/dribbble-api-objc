@@ -5,36 +5,36 @@
 	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
 	<false/>
 	<key>IDESourceControlProjectIdentifier</key>
-	<string>75E2AAA9-9791-48E0-8C8B-D922E0C1D449</string>
+	<string>E9C8988E-1A83-4DE6-AD5A-55CFBA209635</string>
 	<key>IDESourceControlProjectName</key>
 	<string>dribbble</string>
 	<key>IDESourceControlProjectOriginsDictionary</key>
 	<dict>
-		<key>B861F34D-C130-4631-A0A7-2D94F193B4D0</key>
-		<string>aaronsmith@gngrwzrd.com:/Server/git/dribbble.git</string>
+		<key>EDDF4549-7C67-43BA-B5FE-0593A68C4CB0</key>
+		<string>ssh://github.com-gngrwzrd/gngrwzrd/dribbble-api-objc.git</string>
 	</dict>
 	<key>IDESourceControlProjectPath</key>
-	<string>dribbble/dribbble.xcodeproj/project.xcworkspace</string>
+	<string>dribbble.xcodeproj/project.xcworkspace</string>
 	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
 	<dict>
-		<key>B861F34D-C130-4631-A0A7-2D94F193B4D0</key>
-		<string>../../..</string>
+		<key>EDDF4549-7C67-43BA-B5FE-0593A68C4CB0</key>
+		<string>../..</string>
 	</dict>
 	<key>IDESourceControlProjectURL</key>
-	<string>aaronsmith@gngrwzrd.com:/Server/git/dribbble.git</string>
+	<string>ssh://github.com-gngrwzrd/gngrwzrd/dribbble-api-objc.git</string>
 	<key>IDESourceControlProjectVersion</key>
 	<integer>110</integer>
 	<key>IDESourceControlProjectWCCIdentifier</key>
-	<string>B861F34D-C130-4631-A0A7-2D94F193B4D0</string>
+	<string>EDDF4549-7C67-43BA-B5FE-0593A68C4CB0</string>
 	<key>IDESourceControlProjectWCConfigurations</key>
 	<array>
 		<dict>
 			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
 			<string>public.vcs.git</string>
 			<key>IDESourceControlWCCIdentifierKey</key>
-			<string>B861F34D-C130-4631-A0A7-2D94F193B4D0</string>
+			<string>EDDF4549-7C67-43BA-B5FE-0593A68C4CB0</string>
 			<key>IDESourceControlWCCName</key>
-			<string>dribbble</string>
+			<string>dribbble-api-objc</string>
 		</dict>
 	</array>
 </dict>

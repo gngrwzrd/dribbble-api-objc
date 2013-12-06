@@ -1,168 +1,547 @@
 
-#import <Foundation/Foundation.h>
-#if TARGET_OS_MAC
-	#import <AppKit/AppKit.h>
-#endif
-
-#if TARGET_OS_IPHONE
-	#import <UIKit/UIKit.h>
-#endif
-
-#pragma mark Forwards
-
-@class Dribbble;
-@class DribbbleResponse;
-@protocol DribbbleShotsMerger;
-
-#pragma mark Typdefs
-
-//block callback for asynch method calls
-typedef void (^DribbbleCompletionBlock)(DribbbleResponse * response);
-
-//possible values for dribbble.pagerType
-typedef enum DribbblePagerType {
-	DribbblePagerTypeEveryone             = 1,
-	DribbblePagerTypePopular              = 2,
-	DribbblePagerTypeDebut                = 3,
-	DribbblePagerTypeFollowedPlayerShots  = 4,
-} DribbblePagerType;
-
-typedef enum DribbblePagerLoadOperation {
-	DribbblePagerLoadOperationPreloading = 1,
-	DribbblePagerLoadOperationLoadingNextPageOnly,
-	DribbblePagerLoadOperationLoadingFirstPageOnly
-} DribbblePagerLoadOperation;
+#import "Dribbble.h"
 
 //=== Dribbble
 #pragma mark Dribbble
 
-//Instances of Dribbble are used to load multiple pages of dribbble content.
-//It's not a traditional pager though. Each time a load is called it starts at
-//page 1, when the loading is complete, shots can be merged into the existing
-//pool of shots by providing a custom dribbble.shotsMerger.
-@interface Dribbble : NSObject <NSCoding> {
-	BOOL _loading;
-	DribbblePagerType _pagerType;
-	NSMutableArray * _mutableShots;
-	NSMutableArray * _freshShots;
-	NSInteger _currentPage;
-	NSInteger _pagesToLoad;
+@interface Dribbble ()
++ (NSURLRequest *) ApiURLWithPath:(NSString *) path options:(NSDictionary *) options;
++ (DribbbleResponse *) sendSynchronousRequest:(NSURLRequest *) request;
++ (DribbbleResponse *) sendRequest:(NSURLRequest *) request options:(NSDictionary *) options completion:(DribbbleCompletionBlock)completion;
++ (void) sendAsynchRequest:(NSURLRequest *) request completion:(DribbbleCompletionBlock)completion;
+- (NSDictionary *) _getDefaultAPIOptions;
+- (void) _asyncPagerFinished:(DribbbleResponse *) completion completion:(DribbbleCompletionBlock) pagerCompletion;
+- (DribbbleResponse *) _sendSynchronousePagerRequest;
+- (void) _sendAsynchronousPagerRequest:(DribbbleCompletionBlock) completion;
+- (DribbbleResponse *) _load:(DribbbleCompletionBlock) completion;
+- (void) _addToShots:(NSDictionary *) jsonData;
+@end
+
+@interface DribbbleResponse ()
++ (DribbbleResponse *) responseWithData:(NSData *)data;
++ (DribbbleResponse *) responseWithError:(NSError *)error;
+@end
+
+@implementation Dribbble
+
++ (NSURLRequest *) ApiURLWithPath:(NSString *) path options:(NSDictionary *) options; {
+	NSString * request = [NSString stringWithFormat:@"http://api.dribbble.com%@",path];
+	if(options.count) {
+		request = [[request stringByAppendingString:@"?page="] stringByAppendingString:[options objectForKey:@"page"]];
+		request = [[request stringByAppendingString:@"&per_page="] stringByAppendingString:[options objectForKey:@"per_page"]];
+	}
+	NSURL * url = [NSURL URLWithString:request];
+	NSURLRequest * req = [NSURLRequest requestWithURL:url];
+	return req;
 }
 
-//shots to load per page, default=50. max=50.
-@property NSInteger perPage;
++ (DribbbleResponse *) sendSynchronousRequest:(NSURLRequest *) request {
+	NSURLResponse * __autoreleasing response;
+	NSError * __autoreleasing error;
+	NSData * data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+	DribbbleResponse * dresponse = NULL;
+	if(error) {
+		dresponse = [DribbbleResponse responseWithError:error];
+		dresponse.connectionResponse = response;
+	} else {
+		dresponse = [DribbbleResponse responseWithData:data];
+	}
+	return dresponse;
+}
 
-//player name for initFollowingShotsPager.
-@property (nonatomic,readonly) NSString * playerName;
++ (void) sendAsynchRequest:(NSURLRequest *) request completion:(DribbbleCompletionBlock)completion {
+	[NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse * response, NSData * data, NSError * error) {
+		if(error) {
+			DribbbleResponse * response = [DribbbleResponse responseWithError:error];
+			completion(response);
+			return;
+		}
+		if(data) {
+			DribbbleResponse * response = [DribbbleResponse responseWithData:data];
+			completion(response);
+		}
+	}];
+}
 
-//dribbble shots NSMutableArray<NSMutablueDictionary>.
-@property (readonly) NSMutableArray * shots;
++ (DribbbleResponse *) sendRequest:(NSURLRequest *) request options:(NSDictionary *) options completion:(DribbbleCompletionBlock)completion; {
+	if(!completion) {
+		return [self sendSynchronousRequest:request];
+	}
+	[self sendAsynchRequest:request completion:completion];
+	return nil;
+}
 
-//the URL to serialize instance to when using "writeDataToSerializationURLAtomically:"
-@property NSURL * serializationURL;
++ (DribbbleResponse *) everyoneShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:@"/shots/everyone" options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//@see DribbbleShotsMerger protocol definition.
-@property NSObject <DribbbleShotsMerger> * shotsMerger;
++ (DribbbleResponse *) popularShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:@"/shots/popular" options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//use methods below to create a pager instance for loading pages of dribbble shots.
-+ (Dribbble *) deserializedPagerInstanceAtURL:(NSURL *) url;
-- (Dribbble *) initEveryonePager;
-- (Dribbble *) initPopularPager;
-- (Dribbble *) initDebutPager;
-- (Dribbble *) initFollowedPlayerShotsPager:(NSString *)playerName;
++ (DribbbleResponse *) debutShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:@"/shots/debuts" options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//load page 1. if page is -1 it loads (dribbble.shots.count/dribbble.perPage)+1
-- (DribbbleResponse *) load:(DribbbleCompletionBlock)completion;
++ (DribbbleResponse *) commentsForShotId:(NSString *)sid options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/shots/%@/comments",sid] options:options];
+	if(!completion) {
+		DribbbleResponse * response = [self sendSynchronousRequest:request];
+		if(response.error) {
+			return response;
+		}
+		response.jsonData = [response.jsonData objectForKey:@"comments"];
+		return response;
+	}
+	return [Dribbble sendRequest:request options:options completion:^(DribbbleResponse *response) {
+		if(response.error) {
+			completion(response);
+		} else {
+			response.jsonData = [response.jsonData objectForKey:@"comments"];
+			completion(response);
+		}
+	}];
+}
 
-//load specific page.
-- (DribbbleResponse *) loadPage:(NSInteger) page completion:(DribbbleCompletionBlock) completion;
++ (DribbbleResponse *) shotWithId:(NSString *)sid options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/shots/%@",sid] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//load N pages (page 1->N).
-- (DribbbleResponse *) loadPages:(NSInteger) pageCount completion:(DribbbleCompletionBlock) completion;
++ (DribbbleResponse *) playerShots:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/shots",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//write a Dribbble pager instance to a URL.
-- (BOOL) writeDataToURL:(NSURL *) url atomically:(BOOL)atomically;
++ (DribbbleResponse *) followedPlayerShotsForPlayer:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/shots/following",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//write a Dribbble pager instance to a URL - the url set in dribbble.serializationURL.
-- (BOOL) writeDataToSerializationURLAtomically:(BOOL)atomically;
++ (DribbbleResponse *) likesForPlayer:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/shots/likes",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-/**
- * FOR ALL STATIC METHODS BELOW
- * If you provide a completion block, requests are sent _Asynchronously_ and use your block for completion.
- * If you don't provide a completion, requests are sent _Synchronously_ and return DribbbbleCompletion object back to you.
- * POSSIBLE OPTIONS:
- * @{@"page":@"1", @"per_page":@"15"}
- */
-//shots
-+ (DribbbleResponse *) everyoneShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) popularShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) debutShotsWithOptions:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) shotWithId:(NSString *)sid options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) playerShots:(NSString *)player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) followedPlayerShotsForPlayer:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) likesForPlayer:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
++ (DribbbleResponse *) followers:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/followers",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//player
-+ (DribbbleResponse *) player:(NSString *)player options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) followers:(NSString *)player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) following:(NSString *)player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
-+ (DribbbleResponse *) playerDraftees:(NSString *)pid option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
++ (DribbbleResponse *) following:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/following",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
 
-//comments
-+ (DribbbleResponse *) commentsForShotId:(NSString *)sid options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion;
++ (DribbbleResponse *) playerDraftees:(NSString *) player option:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@/draftees",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
+
++ (DribbbleResponse *) player:(NSString *)player options:(NSDictionary *)options completion:(DribbbleCompletionBlock)completion; {
+	NSURLRequest * request = [Dribbble ApiURLWithPath:[NSString stringWithFormat:@"/players/%@",player] options:options];
+	return [Dribbble sendRequest:request options:options completion:completion];
+}
+
++ (Dribbble *) deserializedPagerInstanceAtURL:(NSURL *) url {
+	NSFileManager * fileManager = [NSFileManager defaultManager];
+	Dribbble * dribbble = NULL;
+	if([fileManager fileExistsAtPath:url.path]) {
+		NSData * data = [NSData dataWithContentsOfFile:url.path];
+		dribbble = [NSKeyedUnarchiver unarchiveObjectWithData:data];
+	}
+	dribbble.shotsMerger = [[DribbbleShotsMergerDefault alloc] init];
+	return dribbble;
+}
+
+- (id) init {
+	self = [super init];
+	_mutableShots = [[NSMutableArray alloc] init];
+	_shotsMerger = [[DribbbleShotsMergerDefault alloc] init];
+	_currentPage = 0;
+	self.perPage = 50;
+	return self;
+}
+
+- (id) initWithType:(DribbblePagerType) type playerName:(NSString *) playerName {
+	self = [super init];
+	_pagerType = type;
+	if(_pagerType == DribbblePagerTypeFollowedPlayerShots && ![playerName isEqualToString:@""]) {
+		_playerName = playerName;
+	}
+	return self;
+}
+
+- (Dribbble *) initEveryonePager; {
+	self = [self init];
+	_pagerType = DribbblePagerTypeEveryone;
+	return self;
+}
+
+- (Dribbble *) initPopularPager; {
+	self = [self init];
+	_pagerType = DribbblePagerTypePopular;
+	return self;
+}
+
+- (Dribbble *) initDebutPager; {
+	self = [self init];
+	_pagerType = DribbblePagerTypeDebut;
+	return self;
+}
+
+- (Dribbble *) initFollowedPlayerShotsPager:(NSString *) playerName; {
+	self = [self init];
+	_pagerType = DribbblePagerTypeFollowedPlayerShots;
+	_playerName = playerName;
+	if(!playerName || [playerName isEqualToString:@""]) {
+		NSException * ex = [NSException exceptionWithName:@"NilValue" reason:@"[Dribbble initFollowingShotsPager:] -> playerName cannot be nil." userInfo:nil];
+		NSLog(@"%@",ex);
+		@throw ex;
+	}
+	return self;
+}
+
+- (Dribbble *) initLikesPagerForPlayer:(NSString *)playerName; {
+	self = [self init];
+	_pagerType = DribbblePagerTypeLikesForPlayerShots;
+	_playerName = playerName;
+	if(!playerName || [playerName isEqualToString:@""]) {
+		NSException * ex = [NSException exceptionWithName:@"NilValue" reason:@"[Dribbble initLikesPagerForPlayer:] -> playerName cannot be nil." userInfo:nil];
+		NSLog(@"%@",ex);
+		@throw ex;
+	}
+	return self;
+}
+
+- (id) initWithCoder:(NSCoder *)aDecoder; {
+	self = [super init];
+	NSKeyedUnarchiver * unarchiver = (NSKeyedUnarchiver *)aDecoder;
+	_mutableShots = [NSMutableArray arrayWithArray:[unarchiver decodeObjectForKey:@"shots"]];
+	_pagerType = [unarchiver decodeIntForKey:@"pagerType"];
+	_playerName = [unarchiver decodeObjectForKey:@"playerName"];
+	_perPage = [unarchiver decodeIntegerForKey:@"perPage"];
+	return self;
+}
+
+- (void) encodeWithCoder:(NSCoder *)aCoder; {
+	NSKeyedArchiver * archiver = (NSKeyedArchiver *)aCoder;
+	[archiver encodeInt:_pagerType forKey:@"pagerType"];
+	[archiver encodeInteger:_perPage forKey:@"perPage"];
+	[archiver encodeObject:_playerName forKey:@"playerName"];
+	[archiver encodeObject:_mutableShots forKey:@"shots"];
+}
+
+- (void) _addToShots:(NSDictionary *) jsonData; {
+	NSMutableArray * freshShots = [jsonData objectForKey:@"shots"];
+	[_freshShots addObjectsFromArray:freshShots];
+}
+
+- (void) _mergeFreshShots {
+	[self.shotsMerger mergeFreshShots:_freshShots intoExistingShots:_mutableShots];
+}
+
+- (NSArray *) shots {
+	return [NSArray arrayWithArray:_mutableShots];
+}
+
+- (NSDictionary *) _getDefaultAPIOptions {
+	NSMutableDictionary * options = [NSMutableDictionary dictionary];
+	[options setObject:[NSString stringWithFormat:@"%li",(long)_currentPage] forKey:@"page"];
+	[options setObject:[NSString stringWithFormat:@"%li",(long)self.perPage] forKey:@"per_page"];
+	return options;
+}
+
+- (DribbbleResponse *) _sendSynchronousePagerRequest {
+	DribbbleResponse * result = [[DribbbleResponse alloc] init];
+	result.dribbble = self;
+	while(_pagesToLoad > 0) {
+		_pagesToLoad--;
+		NSDictionary * o = [self _getDefaultAPIOptions];
+		DribbbleResponse * res = NULL;
+		switch(_pagerType) {
+			case DribbblePagerTypeEveryone: {
+				res = [Dribbble everyoneShotsWithOptions:o completion:NULL];
+				break;
+			}
+			case DribbblePagerTypeDebut: {
+				res = [Dribbble debutShotsWithOptions:o completion:NULL];
+				break;
+			}
+			case DribbblePagerTypeFollowedPlayerShots: {
+				res = [Dribbble followedPlayerShotsForPlayer:_playerName option:o completion:NULL];
+				break;
+			}
+			case DribbblePagerTypePopular: {
+				res = [Dribbble popularShotsWithOptions:o completion:NULL];
+				break;
+			}
+			case DribbblePagerTypeLikesForPlayerShots: {
+				res = [Dribbble likesForPlayer:_playerName option:o completion:NULL];
+				break;
+			}
+			default: {
+				NSException * ex = [NSException exceptionWithName:@"PagerTypeUnknown" reason:@"Dribbble.pagerType is not a valid pager type." userInfo:nil];
+				@throw ex;
+				break;
+			}
+		}
+		
+		if(res.error) {
+			_currentPage = 0;
+			_loading = FALSE;
+			result.error = res.error;
+			result.connectionResponse = result.connectionResponse;
+			break;
+		} else {
+			[self _addToShots:res.jsonData];
+			_currentPage++;
+		}
+	}
+	
+	_loading = FALSE;
+	[self _mergeFreshShots];
+	return result;
+}
+
+- (void) _sendAsynchronousPagerRequest:(DribbbleCompletionBlock) completion; {
+	NSDictionary * options = [self _getDefaultAPIOptions];
+	switch (_pagerType) {
+		case DribbblePagerTypeEveryone: {
+			[Dribbble everyoneShotsWithOptions:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		case DribbblePagerTypeDebut: {
+			[Dribbble debutShotsWithOptions:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		case DribbblePagerTypePopular: {
+			[Dribbble popularShotsWithOptions:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		case DribbblePagerTypeFollowedPlayerShots: {
+			[Dribbble followedPlayerShotsForPlayer:_playerName option:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		case DribbblePagerTypeLikesForPlayerShots: {
+			[Dribbble likesForPlayer:_playerName option:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		default: {
+			NSException * ex = [NSException exceptionWithName:@"PagerTypeUnknown" reason:@"Dribbble.pagerType is not a valid pager type." userInfo:nil];
+			@throw ex;
+			break;
+		}
+	}
+}
+
+- (void) _asyncPagerFinished:(DribbbleResponse *) completion completion:(DribbbleCompletionBlock) pagerCompletion; {
+	DribbbleResponse * response = [[DribbbleResponse alloc] init];
+	response.dribbble = self;
+	
+	if(completion.error) {
+		_loading = FALSE;
+		response.error = completion.error;
+		response.connectionResponse = completion.connectionResponse;
+		pagerCompletion(response);
+		return;
+	}
+	
+	NSMutableArray * shots = [completion.jsonData objectForKey:@"shots"];
+	NSInteger shotsCount = shots.count;
+	
+	_pagesToLoad--;
+	
+	if(shots.count > 0) {
+		[self _addToShots:completion.jsonData];
+		if(_pagesToLoad > 0 && shotsCount >= self.perPage) {
+			[self _load:pagerCompletion];
+		} else {
+			_loading = FALSE;
+			[self _mergeFreshShots];
+			pagerCompletion(response);
+		}
+	} else {
+		_loading = FALSE;
+		[self _mergeFreshShots];
+		pagerCompletion(response);
+	}
+}
+
+- (DribbbleResponse *) _load:(DribbbleCompletionBlock) completion {
+	_loading = TRUE;
+	_currentPage++;
+	if(completion) {
+		[self _sendAsynchronousPagerRequest:completion];
+	} else {
+		return [self _sendSynchronousePagerRequest];
+	}
+	DribbbleResponse * response = [[DribbbleResponse alloc] init];
+	response.dribbble = self;
+	return response;
+}
+
+- (DribbbleResponse *) load:(DribbbleCompletionBlock) completion; {
+	if(_loading) {
+		return NULL;
+	}
+	_currentPage = 0;
+	_freshShots = [[NSMutableArray alloc] init];
+	[self.shotsMerger dribbbleShotsWillLoad:self];
+	return [self _load:completion];
+}
+
+- (DribbbleResponse *) loadPages:(NSInteger) pageCount completion:(DribbbleCompletionBlock) completion; {
+	if(_loading) {
+		return NULL;
+	}
+	_pagesToLoad = pageCount;
+	_currentPage = 0;
+	_freshShots = [[NSMutableArray alloc] init];
+	[self.shotsMerger dribbbleShotsWillLoad:self];
+	return [self _load:completion];
+}
+
+- (DribbbleResponse *) loadPage:(NSInteger) page completion:(DribbbleCompletionBlock) completion; {
+	if(_loading) {
+		return NULL;
+	}
+	NSInteger realPage = page;
+	if(page == -1) {
+		realPage = (NSInteger) ceilf((float)_mutableShots.count/self.perPage);
+	}
+	_pagesToLoad = 1;
+	_currentPage = realPage;
+	_freshShots = [[NSMutableArray alloc] init];
+	[self.shotsMerger dribbbleShotsWillLoad:self];
+	return [self _load:completion];
+}
+
+- (BOOL) writeDataToURL:(NSURL *)url atomically:(BOOL)atomically {
+	NSData * data = [NSKeyedArchiver archivedDataWithRootObject:self];
+	return [data writeToURL:url atomically:atomically];
+}
+
+- (BOOL) writeDataToSerializationURLAtomically:(BOOL)atomically {
+	return [self writeDataToURL:self.serializationURL atomically:atomically];
+}
 
 @end
+
 
 //===DribbbleShotsMerger
 #pragma mark DribbbleShotsMerger
 
-//When a Dribbble pager instance loads more shots, the shots loaded are given an
-//opportunity to be merged into an array of existing shots from previous loads.
-//You can set the dribbble.shotMerger to an instance NSObject<DribbbleSotsMerger>
-//and sort/merge fresh shots into the existing pool of shots however you want.
-//Return an array of shots that will be set for the property dribbble.mergedShots.
-@protocol DribbbleShotsMerger <NSObject>
+@implementation DribbbleShotsMergerDefault
 
-//perform the merge
-- (void) mergeFreshShots:(NSMutableArray *) freshShots intoExistingShots:(NSMutableArray *) existingShots;
-
-//get only the shots that were merged into existing shots.
-- (NSArray *) mergedShots;
-
-//a hook called when shots will load, when [dribbble load:] is called.
-- (void) dribbbleShotsWillLoad:(Dribbble *) dribbble;
-
-//another generic method you can user to reset anything.
-- (void) reset;
-
-@end
-
-//The default shot merger used in Dribbble pager instances when shots are being
-//merged into existing shots. @see @protocol(DribbbleShotsMerger).
-@interface DribbbleShotsMergerDefault : NSObject <DribbbleShotsMerger> {
-	NSArray * _mergedShots;
+- (void) mergeFreshShots:(NSMutableArray *)freshShots intoExistingShots:(NSMutableArray *)existingShots {
+	if(freshShots.count < 1) {
+		return;
+	}
+	
+	if(existingShots.count < 1) {
+		[existingShots addObjectsFromArray:freshShots];
+		_mergedShots = [NSArray arrayWithArray:freshShots];
+	} else {
+		NSMutableArray * toInsert = [[NSMutableArray alloc] init];
+		NSDictionary * shot = NULL;
+		
+		for(shot in freshShots) {
+			BOOL insert = TRUE;
+			NSInteger sid = [[shot objectForKey:@"id"] integerValue];
+			NSDictionary * mshot = NULL;
+			
+			for(mshot in existingShots) {
+				NSInteger mshotid = [[mshot objectForKey:@"id"] integerValue];
+				if(sid == mshotid) {
+					insert = FALSE;
+					break;
+				}
+			}
+			
+			if(insert) {
+				[toInsert addObject:shot];
+			}
+		}
+		
+		if(toInsert.count > 0) {
+			//NSRange range = NSMakeRange((existingShots.count-1)-toInsert.count,toInsert.count);
+			//if(toInsert.count == existingShots.count) {
+			//	range = NSMakeRange(0,toInsert.count);
+			//}
+			//[existingShots removeObjectsInRange:range];
+			[existingShots insertObjects:toInsert atIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0,toInsert.count)]];
+			_mergedShots = [NSArray arrayWithArray:toInsert];
+		}
+	}
 }
+
+- (NSArray *) mergedShots {
+	return _mergedShots;
+}
+
+- (void) dribbbleShotsWillLoad:(Dribbble *)dribbble {
+	_mergedShots = [NSArray array];
+}
+
+- (void) reset {
+	_mergedShots = [NSArray array];
+}
+
 @end
+
 
 //=== DribbbleResponse
 #pragma mark DribbbleResponse
 
-//DribbbleResponse objects are passed as parameters to completion blocks and
-//returned to you when using synchronous method calls. Depending on how you use the
-//API different properties are set (noted below).
-@interface DribbbleResponse : NSObject
+@implementation DribbbleResponse
 
-//set if an error occured
-@property NSURLResponse * connectionResponse;
++ (DribbbleResponse *) responseWithData:(NSData *)data {
+	DribbbleResponse * response = [[DribbbleResponse alloc] init];
+	NSError * __autoreleasing jsonError;
+	NSJSONReadingOptions jsonOptions = NSJSONReadingMutableContainers|NSJSONReadingMutableLeaves;
+	id json = [NSJSONSerialization JSONObjectWithData:data options:jsonOptions error:&jsonError];
+	if(jsonError) {
+		response.error = jsonError;
+	} else {
+		response.jsonData = json;
+	}
+	return response;
+}
 
-//set if an error occured
-@property NSError * error;
++ (DribbbleResponse *) responseWithError:(NSError *)error {
+	DribbbleResponse * response = [[DribbbleResponse alloc] init];
+	response.error = error;
+	return response;
+}
 
-//set when using a Dribbble instance as a pager. It's always set to the instance
-//that initiated the page loading.
-@property Dribbble * dribbble;
-
-//only set when using the static [Dribbbble ...] utility methods
-@property id jsonData;
+- (NSString *) description {
+	if(self.dribbble && !self.error && !self.connectionResponse) {
+		return [self.dribbble.shots description];
+	}
+	if(self.jsonData) {
+		return [self.jsonData description];
+	}
+	if(self.error) {
+		return [self.error description];
+	}
+	if(self.connectionResponse) {
+		return [self.connectionResponse description];
+	}
+	return [NSString stringWithFormat:@"[DribbbleResponse <%p>]",self];
+}
 
 @end

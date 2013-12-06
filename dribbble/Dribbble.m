@@ -153,6 +153,7 @@
 		NSData * data = [NSData dataWithContentsOfFile:url.path];
 		dribbble = [NSKeyedUnarchiver unarchiveObjectWithData:data];
 	}
+	dribbble.shotsMerger = [[DribbbleShotsMergerDefault alloc] init];
 	return dribbble;
 }
 
@@ -198,6 +199,18 @@
 	_playerName = playerName;
 	if(!playerName || [playerName isEqualToString:@""]) {
 		NSException * ex = [NSException exceptionWithName:@"NilValue" reason:@"[Dribbble initFollowingShotsPager:] -> playerName cannot be nil." userInfo:nil];
+		NSLog(@"%@",ex);
+		@throw ex;
+	}
+	return self;
+}
+
+- (Dribbble *) initLikesPagerForPlayer:(NSString *)playerName; {
+	self = [self init];
+	_pagerType = DribbblePagerTypeLikesForPlayerShots;
+	_playerName = playerName;
+	if(!playerName || [playerName isEqualToString:@""]) {
+		NSException * ex = [NSException exceptionWithName:@"NilValue" reason:@"[Dribbble initLikesPagerForPlayer:] -> playerName cannot be nil." userInfo:nil];
 		NSLog(@"%@",ex);
 		@throw ex;
 	}
@@ -266,6 +279,10 @@
 				res = [Dribbble popularShotsWithOptions:o completion:NULL];
 				break;
 			}
+			case DribbblePagerTypeLikesForPlayerShots: {
+				res = [Dribbble likesForPlayer:_playerName option:o completion:NULL];
+				break;
+			}
 			default: {
 				NSException * ex = [NSException exceptionWithName:@"PagerTypeUnknown" reason:@"Dribbble.pagerType is not a valid pager type." userInfo:nil];
 				@throw ex;
@@ -313,6 +330,12 @@
 		}
 		case DribbblePagerTypeFollowedPlayerShots: {
 			[Dribbble followedPlayerShotsForPlayer:_playerName option:options completion:^(DribbbleResponse *response) {
+				[self _asyncPagerFinished:response completion:completion];
+			}];
+			break;
+		}
+		case DribbblePagerTypeLikesForPlayerShots: {
+			[Dribbble likesForPlayer:_playerName option:options completion:^(DribbbleResponse *response) {
 				[self _asyncPagerFinished:response completion:completion];
 			}];
 			break;
