@@ -67,6 +67,7 @@ typedef enum DribbblePagerLoadOperation {
 
 //use methods below to create a pager instance for loading pages of dribbble shots.
 + (Dribbble *) deserializedPagerInstanceAtURL:(NSURL *) url;
+- (Dribbble *) initType:(DribbblePagerType) type;
 - (Dribbble *) initEveryonePager;
 - (Dribbble *) initPopularPager;
 - (Dribbble *) initDebutPager;

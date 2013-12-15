@@ -193,6 +193,12 @@
 	return self;
 }
 
+- (Dribbble *) initType:(DribbblePagerType)type; {
+	self = [self init];
+	_pagerType = type;
+	return self;
+}
+
 - (Dribbble *) initFollowedPlayerShotsPager:(NSString *) playerName; {
 	self = [self init];
 	_pagerType = DribbblePagerTypeFollowedPlayerShots;
