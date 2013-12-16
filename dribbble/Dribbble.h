@@ -54,7 +54,7 @@ typedef enum DribbblePagerLoadOperation {
 @property NSInteger perPage;
 
 //player name for initFollowingShotsPager.
-@property (nonatomic,readonly) NSString * playerName;
+@property NSString * playerName;
 
 //dribbble shots NSMutableArray<NSMutablueDictionary>.
 @property (readonly) NSMutableArray * shots;
